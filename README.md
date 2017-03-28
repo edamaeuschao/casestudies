@@ -1,6 +1,4 @@
-# casestudies
-Group Case Studies
-
+# Case Studies
 These are the case studies that my classmates and I put together in our upper division college course (Math 189) at Univeristy of California, San Diego. The course focused on exploratory data analysis and inference, as we applied formal statistical methods on real life applications. 
 
 1. In our first case study, we took a look at a dataset of mothers who smoked throughout their pregnancy and aimed to seek a correlation between smoking during pregnancy, and the birthweight of the infant. 
