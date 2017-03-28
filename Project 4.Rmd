@@ -1,0 +1,212 @@
+---
+title: "Case Study #4"
+output: html_notebook
+---
+# Case Study 4 - Calibrating Snow Meters
+Caitlyn Bryant - Applied Math, 4th yr
+Edward Chao - Math: Statistics, 4th yr
+Kieran Mann - Math/Econ, 4th yr 
+Matthew Kucirek - Applied Math, 4th yr
+
+```{r}
+
+setwd("~/RStudio")
+
+data = read.table("gauge.txt", header = TRUE)
+plot(x=data$density, y=data$gain, xlab = "density", ylab = "gain", col='grey60')
+lines(x=data$density, y=data$gain, col='blue' ,lwd=3)
+
+```
+
+## 1 Fitting a model
+
+Here I created a helper function to quickly test fitting simple linear models by OLS of polynomials of different orders. I found the quickest way to visually guage the fit overall is with a predicted line and prediction/confidence intervals on a graph, so that's what the function outputs:
+
+```{r}
+visualPolyfit <- function (order, confidence) {
+  
+  # fit our model with a polynomial of the given order
+  polyfit <- lm(gain~poly(data$density,order), data = data)
+  
+  gtitle <- paste("Polynomial order:", order, sep=" ")
+  
+  # create a plot of gain + density
+  plot(x=data$density, y=data$gain, xlab = "density", ylab = "gain",  col='grey60', main=gtitle)
+  
+  # get a prediction, intervals
+  predicted.ci <- predict(polyfit,data=data,interval='confidence',level=0.99)
+  predicted.pi <- predict(polyfit,data=data,interval='prediction',level=0.99)
+  
+  # plot fitted line
+  lines(data$density,predicted.ci[,1],col='slategray2',lwd=3)
+  
+  # plot CI lines
+  lines(data$density,predicted.ci[,2],col='dodgerblue2',lwd=1)
+  lines(data$density,predicted.ci[,3],col='dodgerblue2',lwd=1)
+  
+  # plot PI lines
+  lines(data$density,predicted.pi[,2],col='orangered1',lwd=1)
+  lines(data$density,predicted.pi[,3],col='orangered1',lwd=1)
+  
+}
+
+```
+
+
+
+Here we try fitting the model with a linear, square, cubic, 3rd order, 4th order...
+```{r}
+
+# linear ie density = a*gain + c
+visualPolyfit(1)
+
+# square ie density = a*gain + b*gain^2 + c
+visualPolyfit(2)
+
+# cubis ie density = a*gain + b*gain^2 + c*gain^3 + c
+visualPolyfit(3)
+
+
+# Danger! Probably overfitting at this point:
+# higher order polynomials are a slipper slope!
+visualPolyfit(4)
+```
+
+Now, focusing on residuals:
+
+```{r}
+# order 1
+polyfit <- lm(gain~poly(density,1), data = data)
+{plot(polyfit$residuals)
+abline(0,0,col="red")}
+
+# order 2
+polyfit <- lm(gain~poly(density,2), data = data)
+{plot(polyfit$residuals)
+abline(0,0,col="red")}
+
+# order 3
+polyfit <- lm(gain~poly(density,3), data = data)
+{plot(polyfit$residuals)
+abline(0,0,col="red")}
+
+# check for the normality, order = 3
+hist(polyfit$residuals)
+
+
+qqnorm(polyfit$residuals)
+qqline(polyfit$residuals, col="red")
+```
+
+
+
+## 2 Getting predicted values
+
+Looking at using this model to predict a few values from given gains
+
+  1) 38.6  and
+  2) 426.7
+
+```{r}
+
+
+# We'll go with the 3rd order fit because it was 
+# very close, but we don't want to overfit
+fit <- lm(data$gain ~ data$density + I(data$density^2) + I(data$density^3))
+summary(fit)
+
+# We take a look at summary(fit), getting our coefficients.
+# However, we need the inverse of our fit as we want to predict density from gain
+
+inverse = function (f, lower = -100, upper = 100) {
+    function (y) uniroot((function (x) f(x) - y), lower = lower, upper = upper)[1]
+}
+
+# f_inv is our predictive function.
+
+f_inv = inverse(function (x) 429.373 - 1989.918*x + 3521.061*x^2 - 2186.525*x^3)
+
+predictionValues <- c(38.6, 426.7)
+
+# display predicted values
+
+predictedValues <- c(f_inv(predictionValues[1]),f_inv(predictionValues[2]))
+predictedValues
+
+# now we want to create a 95% prediction interval for our regression
+
+preds <- predict(fit, interval = 'prediction')
+
+# graph the lines to show the upper and lower bounds
+plot(x=data$density, y=data$gain, xlab = "density", ylab = "gain",  col='grey60')
+lines(data$density, preds[ ,3], lty = 'dashed', col = 'red')
+lines(data$density, preds[ ,2], lty = 'dashed', col = 'red')
+
+# We want a measure of density, so we flip the model to get 
+# the 95% prediction intervals for density predicted from gain
+
+pFit <- lm(data$density ~ data$gain + I(data$gain^2) + I(data$gain^3))
+
+pPreds <- predict(pFit, interval = 'prediction')
+
+# m is the average distance between the fit and the lower/upper bound
+
+m <-  mean((pPreds[,3] - pPreds[,2])/2)
+
+pred_interval <- function(x,m){
+    pred <- c(as.numeric(f_inv(x))-m, as.numeric(f_inv(x)),as.numeric(f_inv(x))+m)
+    return(pred)
+}
+```
+
+## 3 Cross-Validation
+
+```{r}
+
+
+# subsets the data to not include densities of .508
+cross_data <- data[data$density != .508,]
+
+# regenerating the polynomial model with our new data 
+crossfit <- lm(cross_data$gain ~ cross_data$density + I(cross_data$density^2) + I(cross_data$density^3))
+summary(crossfit)
+
+# We take a look at summary(crossfit), getting our coefficients.
+# cf_inv is our predictive function.
+
+cf_inv = inverse(function (x) 429.373 - 2001.391*x + 3578.508*x^2 - 2247.193*x^3)
+
+# We want a measure of density, so we flip the model to get 
+# the 95% prediction intervals for density predicted from gain
+
+cFit <- lm(cross_data$density ~ cross_data$gain + I(cross_data$gain^2) + I(cross_data$gain^3))
+
+cPreds <- predict(cFit, interval = 'prediction')
+
+# m is the average distance between the fit and the lower/upper bound
+
+cm <-  mean((cPreds[,3] - cPreds[,2])/2)
+
+# this function calculates the upper/lower bounds and predicted values
+
+cpred_interval <- function(x,m){
+
+    pred <- c(as.numeric(cf_inv(x))-m, as.numeric(cf_inv(x)),as.numeric(cf_inv(x))+m)
+    return(pred)
+
+}
+
+#find a few intervals from the cross data and the original data to compare
+
+pred_interval(38.6,m)
+pred_interval(423,m)
+pred_interval(426.7,m)
+pred_interval(429,m)
+
+cpred_interval(38.6,cm)
+cpred_interval(423,cm)
+cpred_interval(426.7,cm)
+cpred_interval(429,cm)
+
+```
+

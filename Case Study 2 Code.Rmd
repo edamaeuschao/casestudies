@@ -1,0 +1,288 @@
+---
+title: "Case Study 2"
+output: html_document
+---
+# Case Study 2
+Caitlyn Bryant - Applied Math, 4th yr
+Edward Chao - Math: Statistics, 4th yr
+Kieran Mann - Math/Econ, 4th yr 
+Matthew Kucirek - Applied Math, 4th yr
+
+## Data Input
+```{r}
+library(truncnorm)
+library(tree)
+
+# Read in data and clean
+videodata <- read.table('~/RStudio/videodata.txt', header=TRUE)
+summary(videodata)
+
+#take out all the 99s 
+videodata[videodata == 99] <- NA
+
+```
+
+## Scenario 1
+
+```{r}
+
+# obtain vector of all hours > 0 
+# calculates point estimate for proportion 
+# of students 
+nzero <- videodata$time[videodata$time > 0]
+p_0 <- length(nzero)/length(videodata$time)
+
+#now we will do a 95% confidence interval 
+# so z_(a/2) = 1.96. First we calculate 
+# standard error based on p_0 
+
+n <- (314-91)/314
+
+se <- sqrt(((p_0*(1-p_0))/(length(videodata$time)-1)*n))
+
+low_bound <- p_0 - 1.96*se
+up_bound <- p_0 + 1.96*se 
+
+```
+
+## Scenario 2 
+
+
+```{r}
+
+plot(videodata$time,videodata$freq)
+plot(videodata$time,videodata$busy)
+
+```
+
+
+## Scenario 3
+
+```{r}
+
+plot(density(videodata$time))
+m <- mean(videodata$time)
+s <- sd(videodata$time)*n
+se_m <- s/sqrt(length(videodata$time))
+
+#obtain quartiles from t distribution 
+q <- qt(c(.025,.975), df = 90)
+
+l_bound_m <- m + q[1]*se_m
+u_bound_m <- m + q[2]*se_m
+
+```
+
+## Scenario 4
+
+```{r}
+# Helper count function
+
+count <- function(X,k,zero = TRUE){
+	
+	#X is a vector and 
+ 	# k is the max value that vector can take 	
+
+	column <- list()
+	
+	if(zero == FALSE){
+	
+		for(j in 1:k){
+			
+			x <- X[X==j]
+			x <- x[!is.na(x)]
+			column[[j]] <- length(x)
+
+			}
+	}
+
+	else if(zero == TRUE){
+
+		for(j in 0:k){
+	
+			x <- X[X == j]
+			x <- x[!is.na(x)]
+			column[[j+1]] <- length(x)
+
+		}
+	}
+
+	return(column)
+}
+
+```
+
+```{r}
+
+dlike <- list()
+
+for(i in 1:5){
+  
+ dlike[[i]] <- videodata[videodata$like == i,]
+ #View(dlike[[i]]) 
+}
+
+##take a look at i == 1## 
+
+# there is only 1 person in this category 
+#  19 yr old male who hates math, worked 
+#  ten hours and has a cpu but no email and wants an a 
+
+##take a look at i == 2## 
+
+
+## count is a function that counts how many 
+## people responded with a certain response 
+
+## for example the first entry of 
+## count(d2$where,6,FALSE) is the number 
+## of people who like video games 2 and who's 
+## where value is 1. If zer0 = true then the first 
+## value is 0.
+
+
+d2 <- dlike[[2]]
+
+View(count(d2$where,6,FALSE))
+View(count(d2$busy,1,TRUE))
+View(count(d2$educ,1,TRUE))
+View(count(d2$sex,1,TRUE))
+View(count(d2$home,1,TRUE))
+View(count(d2$math,1,TRUE))
+View(count(d2$own,1,TRUE))
+View(count(d2$cdrom,1,TRUE))
+
+##take a look at i == 3## 
+
+d3 <- dlike[[3]]
+
+
+View(count(d3$where,6,FALSE))
+View(count(d3$busy,1,TRUE))
+View(count(d3$educ,1,TRUE))
+View(count(d3$sex,1,TRUE))
+View(count(d3$home,1,TRUE))
+View(count(d3$math,1,TRUE))
+View(count(d3$own,1,TRUE))
+View(count(d3$cdrom,1,TRUE))
+
+##take a look at i == 4## 
+
+d4 <- dlike[[4]]
+
+View(count(d4$where,6,FALSE))
+View(count(d4$busy,1,TRUE))
+View(count(d4$educ,1,TRUE))
+View(count(d4$sex,1,TRUE))
+View(count(d4$home,1,TRUE))
+View(count(d4$math,1,TRUE))
+View(count(d4$own,1,TRUE))
+View(count(d4$cdrom,1,TRUE))
+
+##take a look at i == 5## 
+
+d5 <- dlike[[5]]
+
+View(count(d5$where,6,FALSE))
+View(count(d5$busy,1,TRUE))
+View(count(d5$educ,1,TRUE))
+View(count(d5$sex,1,TRUE))
+View(count(d5$home,1,TRUE))
+View(count(d5$math,1,TRUE))
+View(count(d5$own,1,TRUE))
+View(count(d5$cdrom,1,TRUE))
+
+
+
+```
+
+
+## Scenario 5 - Analysis of those whole like games vs. those who don't
+
+```{r}
+
+# sort the data by dislike 
+videodata['dis_like'] <- rep(NA, dim(videodata)[1])
+for(i in 1:dim(videodata)[1]){
+  like <- videodata[i, 'like']
+  if(is.na(like)) {
+    videodata[i, 'dis_like'] = NA
+  } else {
+    if(like == 0 || like == 4 || like == 5){
+      videodata[i, 'dis_like'] = 0
+    } else {
+      videodata[i, 'dis_like'] = 1
+    }
+  }
+  
+}
+
+View(videodata)
+
+videodata.tree <- tree(dis_like~sex+work+own+home, data=videodata)
+summary(videodata.tree)
+plot(videodata.tree, type="uniform")
+text(videodata.tree)
+
+
+```
+
+## Scenario 6 - Grade distribution versus what one would expect 
+For grades:
+4=A,3=B,2=C,1=D,0=F
+
+```{r}
+
+grade_dist.population <- videodata$grade
+
+grade_dist.hist <- hist(videodata$grade)
+
+# make the histogram of density, not total frequency
+grade_dist.hist$density = grade_dist.hist$counts/sum(grade_dist.hist$counts)*100
+
+plot(grade_dist.hist,freq=FALSE, main="Frequency of Grade, All Respondents", xlab="Grade", ylab="Percentage of respondents")
+
+
+# define a helper function for quickly bootstraping medians 
+bootstrap.median <- function(data, num) {
+    reSample <- lapply(1:num, function(i) sample(data, replace=TRUE))
+    r.median <- sapply(reSample, median)
+    std.err <- sqrt(var(r.median))
+    list(std.err=std.err, resamples=reSample, medians=r.median)   
+}
+
+# and then means
+bootstrap.mean <- function(data, num) {
+    reSample <- lapply(1:num, function(i) sample(data, replace=TRUE))
+    r.mean <- sapply(reSample, mean)
+    std.err <- sqrt(var(r.mean))
+    list(std.err=std.err, resamples=reSample, means=mean)   
+}
+
+
+# if we expected a normal distribution:
+normgrades.population <- round(rtruncnorm(n = 300, mean = 2, a = 0, b = 5));
+
+normgrades.bootstrap <- bootstrap.median(normgrades.population, 10000)
+normgrades.hist <- hist(normgrades.bootstrap$medians)
+
+# two sample KS test to conclude that there's no way this is normal
+ks.test(grade_dist.population, normgrades.population)
+
+
+# now construct a distribution distributed according to 
+# 20% A's, 30% B's, 40% C's, 10% D's and F's: 
+perfectDist.population <- sample(0:4, prob = c(0.05, 0.05, 0.4, 0.3, 0.2), replace=TRUE, size = 100)
+perfectDist.hist <- hist(perfectDist.population)
+
+
+ks.test(grade_dist.population, perfectDist.population)
+
+```
+
+``` {r}
+
+hist(perfectDist.population, col=rgb(1,0,0,0.5),xlim=c(1,5), ylim=c(0,60), main="Overlapping Histogram of Ideal vs. Observed Distributions", xlab="Grade Expectation (4=A, 3=B, 2=C, 1=D, 0=F)")
+hist(grade_dist.population, col=rgb(0,0,1,0.5), add=T)
+
+```

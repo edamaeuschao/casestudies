@@ -1,0 +1,444 @@
+---
+title: "math 189 Project 1"
+output: html_notebook
+---
+# Case Study 1
+Caitlyn Bryant - Applied Math, 4th yr
+Edward Chao - Math: Statistics, 4th yr
+Kieran Mann - Math/Econ, 4th yr 
+Matthew Kucirek - Applied Math, 4th yr
+
+# Setup
+Set working directory and read in babies file
+
+```{r}
+
+setwd("~/RStudio") # desired directory as argument
+bigdata <- read.table("./babies23.txt", header=TRUE)
+
+summary(bigdata)
+
+
+```
+
+
+# Assumption: Discard observations that aren't valid 
+9 is recorded for no observation on smoking, 999 for no observation on weight, 98 for no observation on number smoked
+
+```{r}
+
+#filter out useless rows using subset
+bigdata = subset(bigdata, wt != 999 & smoke != 9 & number != 98)
+
+```
+
+
+# Investigation
+
+ - Summarize numerically the two distributions of birth weight for babies born to
+women who smoked during their pregnancy and for babies born to women who
+did not smoke during their pregnancy.
+ - Use graphical methods to compare the two distributions of birth weight.
+ - Asses the importance of the difference you found in your three types of
+comparisons (numerical, graphical, incidence). Summarize your findings and
+relate them to other studies.
+
+# Meaning of the "smoke" variable
+
+0 - no 
+1 - yes
+2 - up until preg
+3 - once, but not while I was pregnant
+9 - unknown (ommitted)
+
+# Graphical Analysis
+
+```{r}
+
+install.packages("dplyr") #used to handle data tables
+library(dplyr)
+
+#HISTOGRAM
+#creating data tables to be made into histograms
+nonsmokers = filter(bigdata, smoke == 0)
+smokers = filter(bigdata, smoke == 1 | smoke == 2 | smoke == 3)
+now = filter(smokers, smoke == 1)
+preg = filter(smokers, smoke == 2)
+once = filter(smokers, smoke == 3)
+
+#histograms of smokers/nonsmokers 
+nosmoke = nonsmokers[,7]
+smoke = smokers[,7]
+hnosmoke = hist(nosmoke, main="Histogram of Baby Weights to Smokers", xlab="Baby Weight in Ounces")
+hsmoke = hist(smoke, main="Histogram of Baby Weights to Non-Smokers", xlab="Baby Weight in Ounces")
+
+#histograms of frequency smoked
+bwtnow = now[,7]
+bwtpreg = preg[,7]
+bwtonce = once[,7]
+hbwtnow = hist(bwtnow, main="", xlab = "Smoked Before and Throughout Pregnancy", cex.lab=1.5, cex.axis=1.5, cex.sub=1.5)
+hbwtpreg = hist(bwtpreg, main="", xlab = "Smoked Up Until Pregnancy", cex.lab=1.5, cex.axis=1.5, cex.sub=1.5)
+hbwtonce = hist(bwtonce, main="", xlab = "Smoked Once", cex.lab=1.5, cex.axis=1.5, cex.sub=1.5)
+
+#Box Plots
+bwtsmokeplot = boxplot(wt~smoke, bigdata)
+bnumber = filter(bigdata, number != 98)
+bwtnumberplot = boxplot(wt~number, bnumber, main="Birthweight vs. Number of Cigarettes", xlab="Number of Cigarettes Smoked a Day", ylab="Infant Birth Weight")
+
+#QQ Plots
+#mothers BMI vs. bwt
+install.packages("measurements")
+library(measurements)
+measures = filter(bigdata, wt.1 != 999, ht != 99)
+bmi.mom = mutate(measures, BMI = (conv_unit(measures[,13], "lbs", "kg")/(conv_unit(measures[,12], "inch", "m"))^2))
+plot(bmi.mom$BMI, bmi.mom$wt)
+qqplot(bmi.mom$BMI, bmi.mom$wt, main="Mother's BMI vs Infant Birth Weight", xlab="Mother's BMI", ylab="Infant Birth Weight", xlim = c(0, 180), ylim = c(0,180))
+abline(c(0,1))
+
+#dad's BMI vs. bwt
+dmeasures = filter(bigdata, dwt != 999, dht != 99)
+bmi.dad = mutate(dmeasures, BMI = (conv_unit(dmeasures[,18], "lbs", "kg")/(conv_unit(dmeasures[,17], "inch", "m"))^2))
+plot(bmi.dad$BMI, bmi.dad$wt)
+qqplot(bmi.dad$BMI, bmi.dad$wt, xlim = c(0, 180), ylim = c(0,180))
+abline(c(0,1))
+
+```
+
+
+# Frequency analysis 
+
+We created a rudimentary frequency analysis function to use in this section
+
+```{r}
+
+# define the function used here for frequency analysis
+analyzeFreq <- function (vector, resolution, range) {
+  toReturn <- vector
+  # find the total range of observations
+  if (!range) totalrange <- range(vector)
+  else totalrange = range
+  
+  # break that range into intervals by the given reosultion
+  breaks = seq(totalrange[1], totalrange[2], by=resolution)
+  
+  # cut and create a frequency table
+  toReturn.cut = cut(vector, breaks, right=FALSE)
+  toReturn.frequency = table(toReturn.cut)
+
+  
+  return (toReturn.frequency)
+}
+
+```
+
+# Create Frequency Analysis Tables/Histograms
+
+```{r}
+# first, overall frequency distribution for all babies
+# range of values for birthweight
+
+# call the function oreviously defined up to get a frequency table
+
+allweights <- bigdata$wt
+
+totalRange <- range(allweights)
+
+allFreq <- analyzeFreq(allweights, 11, totalRange)
+
+View(allFreq)
+
+plot(allFreq, main="Frequency of birthweight by interval (all mothers)", sub="For all mothers, regardless of smoking status", xlab="Birth weight by interval, grams", ylab="Frequency")
+
+smokersweights <- bigdata$wt[bigdata$smoke == 1]
+
+smokers <- analyzeFreq(smokersweights, 11, totalRange)
+
+View(smokers)
+
+plot(smokers)
+
+# group non smokers with those that quit and distant past
+nonsmokersweights <- bigdata$wt[bigdata$smoke != 1]
+
+nonsmokers <- analyzeFreq(nonsmokersweights, 11, totalRange)
+
+View(nonsmokers)
+plot(nonsmokers)
+
+
+# now analyze the frequency of cigaretter smoking among mothers 
+# adjust the observation to reality
+numsmoked <- (bigdata$number * 5)
+
+numsmoked
+smokeFreq <- analyzeFreq(numsmoked, 1, c(55, 176))
+
+
+h = hist(numsmoked)
+
+# make the histogram of density, not total frequency
+h$density = h$counts/sum(h$counts)*100
+plot(h,freq=FALSE, xlab="Cigarettes smoked, interval", ylab="Percentage of mothers")
+
+# frequency of early babies among smokers
+
+earlySmokers <- bigdata$gestation[bigdata$smoke == 1 & bigdata$gestation != 999]
+
+# make days into weeks
+earlySmokers <- earlySmokers / 7
+
+earlySmokers.hist <- hist(earlySmokers)
+
+# make the histogram of density, not total frequency
+earlySmokers.hist$density = earlySmokers.hist$counts/sum(earlySmokers.hist$counts)*100
+
+plot(earlySmokers.hist,freq=FALSE, main="Frequency of Gestation Period, Smokers", xlab="Gestation Period", ylab="Percentage of mothers")
+
+# frequency of early babies among non smokers
+
+earlyNonsmokers <- bigdata$gestation[bigdata$smoke != 1 & bigdata$gestation != 999]
+
+# make days into weeks
+earlyNonsmokers <- earlyNonsmokers / 7
+
+earlyNonsmokers.hist <- hist(earlyNonsmokers)
+
+# make the histogram of density, not total frequency
+earlyNonsmokers.hist$density = earlyNonsmokers.hist$counts/sum(earlyNonsmokers.hist$counts)*100
+
+plot(earlyNonsmokers.hist,freq=FALSE, main="Frequency of Gestation Period, NonSmokers", xlab="Gestation Period", ylab="Percentage of mothers")
+
+
+# frequency of low birth weight among early babies
+
+allGestationWks <- bigdata$gestation[bigdata$gestation != 999 ] /7
+
+weights <- bigdata$wt[bigdata$gestation != 999]
+earlyLight <- weights[allGestationWks < 37]
+
+earlyLight.hist <- hist(earlyLight)
+
+# make the histogram of density, not total frequency
+earlyLight.hist$density = earlyLight.hist$counts/sum(earlyLight.hist$counts)*100
+
+plot(earlyLight.hist,freq=FALSE, main="Frequency of Birthweight, Babies before 37 weeks", xlab="Birth weight, grams", ylab="Percentage of mothers")
+
+
+earlyLight.table <- analyzeFreq(earlyLight, 11, totalRange)
+
+View(earlyLight.table)
+
+
+```
+
+# Numerical Analysis 
+
+```{r}
+
+#we will need moments to calculate moments 
+library("moments")
+
+options(max.print=1000000)
+#read in the data 
+data <- read.table("babies23.txt",header=1)
+#View(data)
+
+#0 - not smoke 
+#1 - smoke 
+#2 smoke up until pregnancy 
+#3 smoked once, not while pregnant 
+
+#separate based on smoking category 
+
+d0 <- data[data$smoke == 0,]
+#View(d0)
+d1 <- data[data$smoke == 1,]
+#View(d1)
+d2 <- data[data$smoke == 2,]
+#View(d2)
+d3 <- data[data$smoke == 3,]
+#View(d3)
+
+d9 <- data[data$smoke == 9,]
+
+
+#caluclate respective means, variance, skew, kurtosis 
+
+m0 <- mean(d0$wt)
+sd0 <- sqrt(var(d0$wt))
+skew0 <- skewness(d0$wt)
+kurt0 <- kurtosis(d0$wt)
+
+s0 <- c(m0,sd0,skew0,kurt0)
+
+m1 <- mean(d1$wt)
+sd1 <- sqrt(var(d1$wt))
+skew1 <- skewness(d1$wt)
+kurt1 <- kurtosis(d1$wt)
+
+s1 <- c(m1,sd1,skew1,kurt1)
+
+m2 <- mean(d2$wt)
+sd2 <- sqrt(var(d2$wt))
+skew2 <- skewness(d2$wt)
+kurt2 <- kurtosis(d2$wt)
+
+s2 <- c(m2,sd2,skew2,kurt2)
+
+m3 <- mean(d3$wt)
+sd3 <- sqrt(var(d3$wt))
+skew3 <- skewness(d3$wt)
+kurt3 <- kurtosis(d3$wt)
+
+s3 <- c(m3,sd3,skew3,kurt3)
+
+m9 <- mean(d9$wt)
+sd9 <- sqrt(var(d9$wt))
+skew9 <- skewness(d9$wt)
+kurt9 <- kurtosis(d9$wt)
+
+s9 <- c(m9,sd9,skew9,kurt9)
+
+
+#the matrix m is a numerical summary 
+#of the distributions of our babys weights 
+# separtated by the 4 categories posed in the start 
+m <- cbind(s0,s1,s2,s3,s9)
+
+# used to obtain the quartiles/extremes of the data 
+
+summary(d0$wt)
+summary(d1$wt)
+summary(d2$wt)
+summary(d3$wt)
+
+#agostino test runs a hypothesis test on the skewess,
+#testing for normality
+
+agostino.test(d0$wt)
+agostino.test(d1$wt)
+agostino.test(d2$wt)
+agostino.test(d3$wt)
+
+#the anscombe test runs a hypothesis test on kurtosis,
+#again testing for normailty 
+
+anscombe.test(d0$wt)
+anscombe.test(d1$wt)
+anscombe.test(d2$wt)
+anscombe.test(d3$wt)
+
+#separating underweight and overweight babies 
+#while keeping them in their respective 
+#smoking category 
+
+bw0 <- d0$wt[d0$wt < 89]
+uw0 <- d0$wt[d0$wt > 88]
+
+bw1 <- d1$wt[d1$wt < 89]
+uw1 <- d1$wt[d1$wt > 88]
+
+bw2 <- d2$wt[d2$wt < 89]
+uw2 <- d2$wt[d2$wt > 88]
+
+bw3 <- d3$wt[d3$wt < 89]
+uw3 <- d3$wt[d3$wt > 88]
+
+bw9 <- d9$wt[d9$wt < 89]
+uw9 <- d9$wt[d9$wt > 88]
+
+#calculating proportions of babies in each category 
+#for example b0 is proportion of babies who are 
+#below weight and in smoke category 0 
+
+b0 <- length(bw0)/1236
+u0 <- length(uw0)/1236
+
+b1 <- length(bw1)/1236
+u1 <- length(uw1)/1236
+
+b2 <- length(bw2)/1236
+u2 <- length(uw2)/1236
+
+b3 <- length(bw3)/1236
+u3 <- length(uw3)/1236
+
+b9 <- length(bw9)/1236
+u9 <- length(uw9)/1236
+
+#creates a matrix of probabilities 
+
+brow <- c(b0,b1,b2,b3,b9)
+urow <- c(u0,u1,u2,u3,u9)
+
+mp <- rbind(brow,urow)
+View(mp)
+
+#calculating probabilities of the column events happening 
+#to later calulcate conditional probabilities 
+
+p0 <- sum(mp[,1])
+p1 <- sum(mp[,2])
+p2 <- sum(mp[,3])
+p3 <- sum(mp[,4])
+p9 <- sum(mp[,5])
+
+p <- c(p0,p1,p2,p3,p9)
+
+mp <- rbind(mp,p)
+
+pw <- c(sum(brow),sum(urow),sum(p))
+
+mp <- cbind(mp,pw)
+
+#creates matrix of conditional probabilites 
+
+cp <- c(mp[1,1]/mp[3,1],
+        mp[1,2]/mp[3,2],
+        mp[1,3]/mp[3,3],
+        mp[1,4]/mp[3,4],
+        mp[1,5]/mp[3,5])
+
+cp1 <- c(mp[2,1]/mp[3,1],
+        mp[2,2]/mp[3,2],
+        mp[2,3]/mp[3,3],
+        mp[2,4]/mp[3,4],
+        mp[2,5]/mp[3,5])
+
+cpt <- rbind(cp,cp1)
+
+#looking at underweight and preterm babies 
+
+d <- data[data$gestation<259 & data$wt <89,]
+
+dzero <-d$smoke[d$smoke == 0]
+done <- d$smoke[d$smoke == 1]
+dtwo <-d$smoke[d$smoke == 2]
+dthree <-d$smoke[d$smoke == 3]
+
+#repeats the process of finding conditional probabilities 
+
+row_uwpt <- c(length(dzero)/1236,length(done)/1236,
+              length(dtwo)/1236,length(dthree)/1236)
+
+row_nuwpt <- c((length(d0$smoke)-length(dzero))/1236,
+                (length(d1$smoke)-length(done))/1236,
+                (length(d2$smoke)-length(dtwo))/1236,
+                (length(d3$smoke)-length(dthree))/1236
+               )
+
+puwpt <- rbind(row_uwpt,row_nuwpt)
+h <- c(sum(puwpt[,1]),sum(puwpt[,2]),sum(puwpt[,3]),sum(puwpt[,4]))
+puwpt <- rbind(puwpt,h)
+View(puwpt)
+
+prob_p <- c(puwpt[1,1]/puwpt[3,1],puwpt[1,2]/puwpt[3,2],
+            puwpt[1,3]/puwpt[3,3],puwpt[1,4]/puwpt[3,4])
+
+prob_p2 <-  c(puwpt[2,1]/puwpt[3,1],puwpt[2,2]/puwpt[3,2],
+              puwpt[2,3]/puwpt[3,3],puwpt[2,4]/puwpt[3,4])         
+prob_puwpt <- rbind(prob_p,prob_p2)
+View(prob_puwpt)
+
+```
+

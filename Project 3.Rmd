@@ -1,0 +1,541 @@
+---
+title: "Case Study #3"
+output: html_notebook
+---
+# Case Study 3 - Patterns in CMV DNA
+Caitlyn Bryant - Applied Math, 4th yr
+Edward Chao - Math: Statistics, 4th yr
+Kieran Mann - Math/Econ, 4th yr 
+Matthew Kucirek - Applied Math, 4th yr
+
+## 1 Random Scatter
+
+```{r}
+
+locs <- read.table("~/RStudio/hcmv.txt", header=TRUE)
+
+r=sample(1:229354,296,replace=F)
+r=sort(r, decreasing = FALSE)
+
+plot(locs, xlab="Index", ylab="Location")
+plot(r, xlab="Index", ylab="Pseudo Random Uniform Location")
+
+plot(r, locs, xlab="Pseudo Random Uniform Palindrome Location", ylab="Given Data Palindrome Location")
+lm(loc ~ r)
+
+abline(4388.8534, 0.9531)
+R <- 1 - (sum((r-location)^2)/sum((r-mean(r))^2))
+R2 = {}
+for(i in 1:100) R2[i]=cor(location,sort(sample(1:229354,296,replace=F)))^2
+hist(R2, xlab="R^2 Values", ylab="Frequency")
+mean(R2)
+
+sd(R2)
+
+median(R2)
+
+max(R2)
+
+min(R2)
+
+install.packages("moments")
+
+library(moments)
+
+skewness(R2)
+kurtosis(R2)
+quantile(R2)
+
+```
+
+
+
+
+## 2 Studying Spacings
+
+Examining the spacing bewteen consecutive palindromes, pairs, triplets 
+
+```{r}
+
+
+# does the question mean palindromes that occur directly next to each other?
+
+test = locs
+
+test["offset"] <- test$location + 1
+
+neighbors <- subset(test, test$location == test$offset)
+
+# likely not, that never happens
+
+```
+
+### Consecutive palindromes
+
+```{r}
+
+# import the zoo package for its beautiful rollapply function
+# like apply, but for rolling windows
+
+library('zoo')
+
+# generate a random sample that looks like similar,
+# uniformly distributed over the whole length, same number of palindromes
+
+fake <- sample(1:229354,296,replace=F)
+fake <- sort(fake, decreasing=FALSE)
+
+# subtract locations of consecutive locations, aka distance
+
+duplets <- rollapply(locs$location, by=1, width=2, diff, align='left')
+
+# do the same for our random sample
+
+randomDuplets <- rollapply(fake, width=2, diff, align='left')
+
+
+# create histograms of both, overlay them, and output
+
+# observed
+hist(duplets, main="Histogram of distances between consecutive palindromes", xlab="Distance", ylab="Frequency", breaks=50,  xlim=c(0,5500), ylim=c(0, 60), col=rgb(1,0,0,0.5))
+
+# random
+hist(randomDuplets, xlim=c(0,5500), ylim=c(0, 60), breaks=50, col=rgb(0,0,1,0.5), add=TRUE)
+
+box()
+
+ks.test(duplets, randomDuplets)
+
+```
+
+### Pairing palindromes 
+
+Now we repeat the process moving the window of application by two's to mearue pairings
+
+```{r}
+
+pairDiff <- function(v) {
+  return (v[4] - v[2])
+}
+
+# subtract locations of 2nd and 4th locations, still moving by one
+# so the difference between each arbitrary pairing
+
+pairs <- rollapply(locs$location, width=4, by=1, FUN=pairDiff, align='left')
+
+# do the same for our random sample
+
+randomPairs <- rollapply(fake, width=4, by=1, FUN=pairDiff, align='left')
+
+
+# create histograms of both, overlay them, and output
+
+# observed
+hist(pairs, main="Histogram of distances between pairings of palindromes", xlab="Distance", ylab="Frequency", breaks=50,  xlim=c(0,5500), ylim=c(0, 30), col=rgb(1,0,0,0.5))
+
+# random
+hist(randomPairs, xlim=c(0,5500), ylim=c(0, 30), breaks=50, col=rgb(0,0,1,0.5), add=TRUE)
+
+box()
+
+ks.test(pairs, randomPairs)
+
+
+```
+
+
+### Triplets
+
+```{r}
+
+# define a special difference function for the distance between more than every other
+menageATrois <- function(v) {
+    return (v[6] - v[3])
+}
+
+triplets <- rollapply(locs$location, width=6, by=1, FUN=menageATrois, align='left')
+
+randomTriplets <- rollapply(fake, width=6, by=1, FUN=menageATrois, align='left')
+
+# observed
+hist(triplets, main="Histogram of distances between triplets", xlab="Distance", ylab="Frequency", breaks=50,  xlim=c(0,5500), ylim=c(0, 30), col=rgb(1,0,0,0.5))
+
+# random
+hist(randomTriplets, xlim=c(0,5500), ylim=c(0, 30), breaks=50, col=rgb(0,0,1,0.5), add=TRUE)
+
+box()
+
+ks.test(triplets, randomTriplets)
+
+
+```
+
+
+
+
+
+## 3 Counts 
+
+```{r}
+
+analyzeFreq <- function(vector, resolution, range) {
+  
+  toReturn <- vector
+  #if(!range) totalRange <- range(vector)
+  #else totalRange = range
+  
+  breaks = seq(range[1],range[2],by = resolution)
+  
+  toReturn.cut = cut(vector,breaks,right = FALSE)
+  toReturn.frequency = table(toReturn.cut)
+  
+  return(toReturn.frequency)
+}
+
+x = locs$location
+
+hist(x, breaks=100,probability = TRUE, col = 4, xlab = "Palindrome Location", main = "Uniform Distribution of Sample")
+lines(density(x, adjust = 2), col = 3)
+
+```
+
+
+```{r}
+#splits into intervals
+intervals = analyzeFreq(x, 4000, c(1,229354))
+#graph
+plot(intervals, type = "h", xlab = "Intervals", ylab = "Palindromes", main = "Distribution of Sample")
+lines(density(intervals, adjust = 2), col = 3)
+```
+
+
+```{r}
+#uniform scatter
+set.seed(2017)
+n <- 296 # number of palindroms
+random <- runif(n, min = 0, max = 229345) #57 random locations
+sorted = sort(random) #locations
+```
+
+```{r}
+#graph 
+hist(sorted, breaks = 100, probability = TRUE, col = 3, xlab = "Samples", main = "Uniform Distribution")
+lines(density(sorted, adjust = 2), col = 2)
+```
+
+```{r}
+#intervals
+B = analyzeFreq(sorted, 4000, c(1,229345))
+hist(B, breaks=20, probability = TRUE, col = 3, xlab = "Samples", main = "Uniform Distribution")
+lines(density(B, adjust = 2), col = 4)
+
+#most occur around 120,000
+# talk about how this is not the best way to analyze
+
+```
+
+```{r}
+k <- 57 #57 subintervals
+tab <- table(cut(sorted, breaks = seq(0, 229354, length.out = k+1), include.lowest = TRUE))
+head(tab, 10)
+
+counts <- as.vector(tab)
+head(counts, 10)
+
+#poisson
+hist(counts, breaks = 15, col = rgb(1,0,0,0.5), probability = TRUE, xlab = "number of points inside an interval", xlim = c(0, 10), ylim = c(0,0.8), main = "Distribution of Points in Intervals")
+lines(density(counts, adjust = 2), col = rgb(1,0,0,0.5))
+```
+
+```{r}
+Pois <- rpois(1000, lambda = mean(counts))
+hist(Pois, breaks = 15, col = rgb(0,0,1,0.5), probability = TRUE)
+lines(density(Pois, adjust = 2), col = rgb(0,0,1,0.5))
+legend(x = 14, y = 0.15, legend = c("sample", "Poisson"), lty = c(1,1), col = c(rgb(1,0,0,0.5), rgb(0,0,1,0.5)))
+
+```
+
+``` {r}
+n = 296
+k = 57
+E_i = n/k
+chi_2 = sum((counts - E_i)^2/E_i)
+chi_2
+```
+
+```{r}
+chi2_compare <- qchisq(p = 0.95, df = 99)
+chi2_compare
+p_value <- 1 - pchisq(chi_2, df = 99)
+p_value
+```
+
+```{r}
+p_i <- rep(E_i/n, k)
+chisq.test(counts, p = p_i)
+```
+
+```{r}
+Residuals <- (counts - E_i) / sqrt(E_i)
+plot(Residuals, type = 'h', ylab = "standardized residuals", xlab = "interval index")
+```
+
+
+## 4 Biggest CLuster 
+
+
+```{r}
+
+intervCounts <- function(vec){
+
+
+icounts <- c()
+
+for(i in 0:max(as.vector(vec))){
+  
+  icounts[i+1] = length(vec[vec == i])
+  
+}
+
+return(icounts)
+
+}
+
+```
+
+
+```{r}
+
+pgen <- function(vec){
+  
+  hist(vec, breaks = 15, col = rgb(1,0,0,0.5),  probability = TRUE, 
+     xlab = "number of points inside an interval",  ylim = c(0,0.3),main = "Interval Length 5000")
+
+lines(density(vec, adjust = 2), col = rgb(1,0,0,0.5))
+
+Pois <- rpois(296, lambda = mean(vec))
+hist(Pois, breaks = 15, col = rgb(0,0,1,0.5), probability = TRUE, add = TRUE)
+lines(density(Pois, adjust = 2), col = rgb(0,0,1,0.5))
+
+legend(x = 9, y = 0.2, legend = c("Sample", "Poisson"), 
+       lty = c(1,1), col = c(rgb(1,0,0,0.5), rgb(0,0,1,0.5)))
+
+
+}
+
+```
+
+
+```{r}
+
+pprob <- function(vec,x){
+#vec is the vector that contains the observed number of intervals 
+#x corresponds to which interval length we are observing   
+
+  p_p <- c()
+for (i in 1:length(vec)){
+  
+  p_p[i] <- dpois(i-1,lambda=lambda[x])
+ 
+  
+   
+}
+  return(p_p)
+}
+
+```
+
+
+```{r}
+
+pgen <- function(vec){
+  
+  hist(vec, breaks = 15, col = rgb(1,0,0,0.5),  probability = TRUE, 
+     xlab = "number of points inside an interval",  ylim = c(0,0.3),main = "Interval Length 5000")
+
+lines(density(vec, adjust = 2), col = rgb(1,0,0,0.5))
+
+Pois <- rpois(296, lambda = mean(vec))
+hist(Pois, breaks = 15, col = rgb(0,0,1,0.5), probability = TRUE, add = TRUE)
+lines(density(Pois, adjust = 2), col = rgb(0,0,1,0.5))
+
+legend(x = 9, y = 0.2, legend = c("Sample", "Poisson"), 
+       lty = c(1,1), col = c(rgb(1,0,0,0.5), rgb(0,0,1,0.5)))
+
+
+}
+
+```
+
+
+
+
+
+```{r}
+
+#reads in data 
+
+dna <- read.table("hcmv.txt", header = TRUE)
+
+#selects only the locations
+
+x <- dna[,1]
+
+#tells us how many palindromes are in each interval
+#we analyze different interval lengths 2000,3000,4000,5000
+
+twothou <- analyzeFreq(x,2000,c(1,229354))
+threethou <- analyzeFreq(x,3000,c(1,229354))
+fourthou <- analyzeFreq(x,4000,c(1,229354))
+fivethou <- analyzeFreq(x,5000,c(1,229354))
+
+#sets a seed for random generation
+set.seed(2017)
+
+n <- 296 # number of palindroms
+
+#generates 296 uniformly distributed points along the 229345 possible locations
+
+sample <- runif(n, min = 0, max = 229345) #57 random locations
+
+#we sort the vector for convience & turn it into an integer type for computation
+
+sorted <- sort(sample) #locations
+sorted <- as.integer(sorted)
+
+#analyzes the uniform random scatter for comparison with our data 
+
+b2 = analyzeFreq(sorted, 2000, c(1,229354))
+b3 = analyzeFreq(sorted, 3000, c(1,229354))
+b4 = analyzeFreq(sorted, 4000, c(1,229354))
+b5 = analyzeFreq(sorted, 5000, c(1,229354))
+
+
+
+#plot(b2, main = 'Uniform 2000s')
+#plot(twothou, main = 'Interval Length 2000')
+#plot(b3, main = 'Uniform 3000s')
+#plot(threethou, main = 'Interval Length 3000')
+#plot(b4, main = 'Uniform 4000s')
+#plot(fourthou, main = 'Interval Length 4000')
+#plot(b5, main = 'Uniform 5000s')
+#plot(fivethou, main = 'Interval Length 5000')
+
+#calculates the maximum number of palindromes in the intervals 
+ # for different interval lenghts for the uniform scatter and the data 
+
+max_uni <- c(b2[which.max(b2)],b3[which.max(b3)],b4[which.max(b4)],
+             b5[which.max(b5)])
+
+max_data <- c(twothou[which.max(twothou)], 
+              threethou[which.max(threethou)],
+              fourthou[which.max(fourthou)],
+              fivethou[which.max(fivethou)])
+
+### that concludes the uniform analysis ###
+### pgen is a function that compares our sample to 
+### a random poisson distribution with lambda = 296/number of intervals 
+
+#pgen(as.vector(b2))
+#pgen(as.vector(b3))
+#pgen(as.vector(b4))
+#pgen(as.vector(b5))
+
+#estimates lambda for different interval lengths 
+
+lambda <- c(n/length(as.vector(b2)), n/length(as.vector(b3)),
+           n/length(as.vector(b4)), n/length(as.vector(b5)))
+
+#Counts how many intervals contain  a particular number of 
+ #palindromes for different interval lengths
+
+twocount <- intervCounts(as.vector(twothou))
+threecount <- intervCounts(as.vector(threethou))
+fourcount <- intervCounts(as.vector(fourthou))
+fivecount <- intervCounts(as.vector(fivethou))
+
+#based on the poisson model, we calulate the expected number of intervals 
+  # with a certain number of palindromes in it 
+
+twoxp <- length(twothou)*pprob(twocount,1)
+threexp <- length(threethou)*pprob(threecount,2)
+fourxp <- length(fourthou)*pprob(fourcount,3)
+fivexp <- length(fivethou)*pprob(fivecount,4)
+
+
+#test statistics
+
+
+
+
+twoxp <- c(twoxp[1],twoxp[2],twoxp[3],twoxp[4],twoxp[5],twoxp[6],
+           sum(twoxp[twoxp<4]))
+
+twocount <- c(twocount[1],twocount[2],twocount[3],twocount[4],twocount[5],
+           twocount[6], twocount[7]+twocount[8]+twocount[9]+
+             twocount[10]+twocount[11]+twocount[12]+twocount[13])
+
+
+twochi <- sum((((twocount - twoxp)^2)/twoxp))
+
+twop <- 1 - pchisq(twochi,df=5)
+
+threexp <- c(threexp[1]+threexp[2],threexp[3],threexp[4],threexp[5],
+             threexp[6],threexp[7],threexp[8],
+             sum(threexp[9],threexp[10],threexp[11],threexp[12],
+                 threexp[13],threexp[14]))
+
+threecount <- c(threecount[1]+threecount[2],threecount[3],threecount[4],threecount[5],
+             threecount[6],threecount[7],threecount[8],
+             sum(threecount[9],threecount[10],threecount[11],threecount[12],
+                 threecount[13],threecount[14]))
+
+
+threechi <- sum((((threecount - threexp)^2)/threexp))
+
+threep <- 1 - pchisq(threechi,df=6)
+
+fourxp <- c(fourxp[1]+fourxp[2]+fourxp[3],fourxp[4],
+            fourxp[5],fourxp[6],fourxp[7],fourxp[8],
+            fourxp[9],fourxp[10]+fourxp[11]+fourxp[12]+
+              fourxp[13]+fourxp[14]+fourxp[15])
+
+fourcount <- c(fourcount[1]+fourcount[2]+fourcount[3],fourcount[4],
+               fourcount[5],fourcount[6],fourcount[7],fourcount[8],
+               fourcount[9],fourcount[10]+fourcount[11]+fourcount[12]+
+                 fourcount[13]+fourcount[14]+fourcount[15])
+
+fourchi <- sum((((fourcount - fourxp)^2)/fourxp))
+
+fourp <- 1 - pchisq(fourchi,df=6)
+
+
+fivexp <- c(sum(fivexp[1],fivexp[2],fivexp[3],fivexp[4]),fivexp[5],
+            fivexp[6],fivexp[7],fivexp[8],fivexp[9],fivexp[10],
+            sum(fivexp[11],fivexp[12],fivexp[13],fivexp[14],fivexp[15],
+                fivexp[16],fivexp[17],fivexp[18],fivexp[19]))
+
+fivecount <- c(sum(fivecount[1],fivecount[2],fivecount[3],fivecount[4]),fivecount[5],
+            fivecount[6],fivecount[7],fivecount[8],fivecount[9],fivecount[10],
+            sum(fivecount[11],fivecount[12],fivecount[13],fivecount[14],fivecount[15],
+                fivecount[16],fivecount[17],fivecount[18],fivecount[19]))
+
+fivechi <- sum((((fivecount - fivexp)^2)/fivexp))
+
+fivep <- 1 - pchisq(fivechi,df=6)
+
+## from these tests we see that the interval length of 4000 is the 
+## optimal choice from our selection as it yields a significantly 
+## higher p-value than the other tests 
+
+lambda <- lambda[3]
+
+prob_0 <- dpois(0,lambda)
+
+prob_max <- c()
+
+for (i in 5:14){
+  prob_max[i-4] <- 1 - (ppois(i,lambda))^(length(as.vector(fourthou)))
+}
+
+```
